@@ -144,6 +144,7 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
         const isNearWarming = isWithinTimeRange(userNow, adjustedCycle.warmingTime, 15);
         const isNearWakeup = isWithinTimeRange(userNow, adjustedCycle.wakeupTime, 15);
 
+       // Determine current sleep stage
         let currentSleepStage = "outside sleep cycle";
         if (userNow >= adjustedCycle.preHeatingTime && userNow < adjustedCycle.bedTime) {
           currentSleepStage = "pre-heating";
@@ -151,9 +152,13 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           currentSleepStage = "initial";
         } else if (userNow >= adjustedCycle.midStageTime && userNow < adjustedCycle.finalStageTime) {
           currentSleepStage = "mid";
-        } else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.warmingTime) {
+        } 
+        // CHANGE: Final now ends when Warming starts
+        else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.warmingTime) {
           currentSleepStage = "final";
-        } else if (userNow >= adjustedCycle.warmingTime && userNow < adjustedCycle.wakeupTime) {
+        } 
+        // NEW: Warming stage takes over for the last 30 mins
+        else if (userNow >= adjustedCycle.warmingTime && userNow < adjustedCycle.wakeupTime) {
           currentSleepStage = "warming";
         }
 
