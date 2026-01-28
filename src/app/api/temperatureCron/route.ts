@@ -1,3 +1,4 @@
+
 import type { NextRequest } from "next/server";
 import { db } from "~/server/db";
 import { userTemperatureProfile, users } from "~/server/db/schema";
@@ -63,10 +64,9 @@ function createSleepCycle(baseDate: Date, bedTimeStr: string, wakeupTimeStr: str
   }
   
   const midStageTime = new Date(bedTime.getTime() + 60 * 60 * 1000);
- const finalStageTime = new Date(wakeupTime.getTime() - 2 * 60 * 60 * 1000);
-const wakeUpPhaseTime = new Date(wakeupTime.getTime() - 30 * 60 * 1000); // 30 mins before wake
-
-return { preHeatingTime, bedTime, midStageTime, finalStageTime, wakeUpPhaseTime, wakeupTime };
+  const finalStageTime = new Date(wakeupTime.getTime() - 2 * 60 * 60 * 1000);
+  
+  return { preHeatingTime, bedTime, midStageTime, finalStageTime, wakeupTime };
 }
 
 function adjustTimeToCurrentCycle(cycleStart: Date, currentTime: Date, timeInCycle: Date): Date {
@@ -160,7 +160,6 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
         const isNearBedTime = isWithinTimeRange(userNow, adjustedCycle.bedTime, 15);
         const isNearMidStage = isWithinTimeRange(userNow, adjustedCycle.midStageTime, 15);
         const isNearFinalStage = isWithinTimeRange(userNow, adjustedCycle.finalStageTime, 15);
-        const isNearWakeUpPhase = isWithinTimeRange(userNow, adjustedCycle.wakeUpPhaseTime, 15);
         const isNearWakeup = isWithinTimeRange(userNow, adjustedCycle.wakeupTime, 15);
 
         // Determine current sleep stage
@@ -181,22 +180,19 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           let targetLevel: number;
           let sleepStage: string;
 
-         if (isNearPreHeating || (isNearBedTime && userNow < adjustedCycle.bedTime)) {
-  targetLevel = userTemperatureProfile.initialSleepLevel; // Uses App Slider
-  sleepStage = "pre-heating";
-} else if (isNearBedTime || (isNearMidStage && userNow < adjustedCycle.midStageTime)) {
-  targetLevel = userTemperatureProfile.initialSleepLevel; // Uses App Slider
-  sleepStage = "initial";
-} else if (isNearMidStage || (isNearFinalStage && userNow < adjustedCycle.finalStageTime)) {
-  targetLevel = userTemperatureProfile.midStageSleepLevel; // Uses App Slider
-  sleepStage = "mid";
-} else if (isNearWakeUpPhase) {
-  targetLevel = 2; // HARDCODED WAKE UP TEMP (Adjust this number as you like)
-  sleepStage = "warm-up";
-} else {
-  targetLevel = userTemperatureProfile.finalSleepLevel; // Uses App Slider
-  sleepStage = "final";
-}
+          if (isNearPreHeating || (isNearBedTime && userNow < adjustedCycle.bedTime)) {
+            targetLevel = userTemperatureProfile.initialSleepLevel;
+            sleepStage = "pre-heating";
+          } else if (isNearBedTime || (isNearMidStage && userNow < adjustedCycle.midStageTime)) {
+            targetLevel = userTemperatureProfile.initialSleepLevel;
+            sleepStage = "initial";
+          } else if (isNearMidStage || (isNearFinalStage && userNow < adjustedCycle.finalStageTime)) {
+            targetLevel = userTemperatureProfile.midStageSleepLevel;
+            sleepStage = "mid";
+          } else {
+            targetLevel = userTemperatureProfile.finalSleepLevel;
+            sleepStage = "final";
+          }
 
           console.log(`Adjusting temperature for ${sleepStage} stage for user ${profile.users.email}`);
 
