@@ -53,7 +53,7 @@ interface SleepCycle {
 
 function createSleepCycle(baseDate: Date, bedTimeStr: string, wakeupTimeStr: string): SleepCycle {
   const preHeatingTime = createDateWithTime(baseDate, bedTimeStr);
-  preHeatingTime.setHours(preHeatingTime.getHours() - 1); // Set pre-heating to 1 hour before bedtime
+  preHeatingTime.setHours(preHeatingTime.getHours() - 3); // Set pre-heating to 1 hour before bedtime
   
   const bedTime = createDateWithTime(baseDate, bedTimeStr);
   let wakeupTime = createDateWithTime(baseDate, wakeupTimeStr);
