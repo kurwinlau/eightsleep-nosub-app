@@ -47,7 +47,7 @@ interface SleepCycle {
   bedTime: Date;
   midStageTime: Date;
   finalStageTime: Date;
-  warmingTime: Date; // Added for wake-up heat spike
+  warmingTime: Date; 
   wakeupTime: Date;
 }
 
@@ -64,7 +64,7 @@ function createSleepCycle(baseDate: Date, bedTimeStr: string, wakeupTimeStr: str
   
   const midStageTime = new Date(bedTime.getTime() + 60 * 60 * 1000);
   const finalStageTime = new Date(wakeupTime.getTime() - 2 * 60 * 60 * 1000);
-  const warmingTime = new Date(wakeupTime.getTime() - 30 * 60 * 1000); // 30 mins before alarm
+  const warmingTime = new Date(wakeupTime.getTime() - 30 * 60 * 1000); 
   
   return { preHeatingTime, bedTime, midStageTime, finalStageTime, warmingTime, wakeupTime };
 }
@@ -144,32 +144,29 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
         const isNearWarming = isWithinTimeRange(userNow, adjustedCycle.warmingTime, 15);
         const isNearWakeup = isWithinTimeRange(userNow, adjustedCycle.wakeupTime, 15);
 
-       // Determine current sleep stage
+        // STAGE DETECTION LOGIC
         let currentSleepStage = "outside sleep cycle";
-        if (userNow >= adjustedCycle.preHeatingTime && userNow < adjustedCycle.bedTime) {
+        if (userNow >= adjustedCycle.warmingTime && userNow < adjustedCycle.wakeupTime) {
+          currentSleepStage = "warming"; // Check warming first!
+        } else if (userNow >= adjustedCycle.preHeatingTime && userNow < adjustedCycle.bedTime) {
           currentSleepStage = "pre-heating";
         } else if (userNow >= adjustedCycle.bedTime && userNow < adjustedCycle.midStageTime) {
           currentSleepStage = "initial";
         } else if (userNow >= adjustedCycle.midStageTime && userNow < adjustedCycle.finalStageTime) {
           currentSleepStage = "mid";
-        } 
-        // CHANGE: Final now ends when Warming starts
-        else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.warmingTime) {
+        } else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.warmingTime) {
           currentSleepStage = "final";
-        } 
-        // NEW: Warming stage takes over for the last 30 mins
-        else if (userNow >= adjustedCycle.warmingTime && userNow < adjustedCycle.wakeupTime) {
-          currentSleepStage = "warming";
         }
 
         console.log(`User: ${profile.users.email} | Stage: ${currentSleepStage}`);
 
+        // TEMPERATURE SELECTION LOGIC (PRIORITY ORDER)
         if (isNearPreHeating || isNearBedTime || isNearMidStage || isNearFinalStage || isNearWarming || isNearWakeup) {
           let targetLevel: number;
           let sleepStage: string;
 
           if (isNearWarming) {
-            targetLevel = 2; 
+            targetLevel = 2; // HIGH PRIORITY HEAT ALARM
             sleepStage = "warming-alarm";
           } else if (isNearPreHeating || (isNearBedTime && userNow < adjustedCycle.bedTime)) {
             targetLevel = userTempProfile.initialSleepLevel;
@@ -197,7 +194,7 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           console.log(`Heating turned off`);
         }
       } catch (error) {
-        console.error(`Error:`, error);
+        console.error(`User loop error:`, error);
       }
     }
   } catch (error) {
@@ -221,6 +218,6 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
     return Response.json({ success: true });
   } catch (error) {
-    return new Response("Internal server error", { status: 500 });
+    return new Response("Internal error", { status: 500 });
   }
 }
