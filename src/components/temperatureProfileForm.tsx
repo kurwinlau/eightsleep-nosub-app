@@ -13,6 +13,7 @@ const temperatureProfileSchema = z.object({
   initialSleepLevel: z.number().min(-10).max(10),
   midStageSleepLevel: z.number().min(-10).max(10),
   finalSleepLevel: z.number().min(-10).max(10),
+  wakeupWarmupLevel: z.number().min(-10).max(10),
   timezone: z.object({
     value: z.string(),
     altName: z.string().optional(),
@@ -43,6 +44,7 @@ export const TemperatureProfileForm: React.FC = () => {
       initialSleepLevel: 0,
       midStageSleepLevel: 0,
       finalSleepLevel: 0,
+      wakeupWarmupLevel: 0,
       timezone: { value: "America/New_York"},
     },
   });
@@ -54,6 +56,7 @@ export const TemperatureProfileForm: React.FC = () => {
     duration: "",
     midStageTime: "",
     finalStageTime: "",
+    warmupTime: "",
   });
 
   const getUserTemperatureProfileQuery = apiR.user.getUserTemperatureProfile.useQuery();
@@ -67,6 +70,8 @@ export const TemperatureProfileForm: React.FC = () => {
       setValue("initialSleepLevel", profile.initialSleepLevel / 10);
       setValue("midStageSleepLevel", profile.midStageSleepLevel / 10);
       setValue("finalSleepLevel", profile.finalSleepLevel / 10);
+      // Null for profiles saved before this stage existed.
+      setValue("wakeupWarmupLevel", (profile.wakeupWarmupLevel ?? 0) / 10);
       setValue("timezone", { value: profile.timezoneTZ });
       setIsExistingProfile(true);
       setIsLoading(false);
@@ -93,16 +98,18 @@ export const TemperatureProfileForm: React.FC = () => {
       // Check if sleep duration is less than 4 hours
       if (hours < 4 ) {
         setSleepDurationError("Sleep duration must be at least 4 hours.");
-        setSleepInfo({ duration: "", midStageTime: "", finalStageTime: "" });
+        setSleepInfo({ duration: "", midStageTime: "", finalStageTime: "", warmupTime: "" });
       } else {
         setSleepDurationError(null);
         const midStageDate = new Date(bedDate.getTime() + 60 * 60 * 1000); // 1 hour after bedtime
         const finalStageDate = new Date(wakeDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before wakeup
+        const warmupDate = new Date(wakeDate.getTime() - 15 * 60 * 1000); // 15 minutes before wakeup
 
         setSleepInfo({
           duration: `${hours} hours ${minutes} minutes`,
           midStageTime: midStageDate.toTimeString().slice(0, 5),
           finalStageTime: finalStageDate.toTimeString().slice(0, 5),
+          warmupTime: warmupDate.toTimeString().slice(0, 5),
         });
       }
     }
@@ -144,6 +151,7 @@ export const TemperatureProfileForm: React.FC = () => {
       initialSleepLevel: Math.round(data.initialSleepLevel * 10),
       midStageSleepLevel: Math.round(data.midStageSleepLevel * 10),
       finalSleepLevel: Math.round(data.finalSleepLevel * 10),
+      wakeupWarmupLevel: Math.round(data.wakeupWarmupLevel * 10),
       timezoneTZ: data.timezone.value,
     };
 
@@ -159,7 +167,11 @@ export const TemperatureProfileForm: React.FC = () => {
   };
 
   const SliderInput: React.FC<{
-    name: "initialSleepLevel" | "midStageSleepLevel" | "finalSleepLevel";
+    name:
+      | "initialSleepLevel"
+      | "midStageSleepLevel"
+      | "finalSleepLevel"
+      | "wakeupWarmupLevel";
     label: string;
     control: Control<TemperatureProfileForm>;
     info?: string;
@@ -303,6 +315,12 @@ export const TemperatureProfileForm: React.FC = () => {
           label="Final Sleep Level"
           control={control}
           info={`Starts at ${sleepInfo.finalStageTime}`}
+        />
+        <SliderInput
+          name="wakeupWarmupLevel"
+          label="Wake-Up Warm-Up Level"
+          control={control}
+          info={`Starts at ${sleepInfo.warmupTime}, 15 minutes before wake-up`}
         />
 
         <div className="flex justify-between">
