@@ -95,14 +95,16 @@ export const TemperatureProfileForm: React.FC = () => {
       const hours = Math.floor(durationMs / (1000 * 60 * 60));
       const minutes = Math.round((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-      // Check if sleep duration is less than 4 hours
+      // Note: mid-stage is 2h after bedtime and final is 3h before wake-up, so
+      // nights shorter than ~5.5h put those two stages out of order. Not
+      // enforced here -- the schedule is set once and is comfortably longer.
       if (hours < 4 ) {
         setSleepDurationError("Sleep duration must be at least 4 hours.");
         setSleepInfo({ duration: "", midStageTime: "", finalStageTime: "", warmupTime: "" });
       } else {
         setSleepDurationError(null);
-        const midStageDate = new Date(bedDate.getTime() + 60 * 60 * 1000); // 1 hour after bedtime
-        const finalStageDate = new Date(wakeDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before wakeup
+        const midStageDate = new Date(bedDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours after bedtime
+        const finalStageDate = new Date(wakeDate.getTime() - 3 * 60 * 60 * 1000); // 3 hours before wakeup
         const warmupDate = new Date(wakeDate.getTime() - 15 * 60 * 1000); // 15 minutes before wakeup
 
         setSleepInfo({
