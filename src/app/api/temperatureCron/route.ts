@@ -43,30 +43,41 @@ async function retryApiCall<T>(apiCall: () => Promise<T>, retries = 3): Promise<
   throw new Error("This should never happen due to the for loop, but TypeScript doesn't know that");
 }
 
+// How long before wake-up the warm-up stage starts.
+const WAKEUP_WARMUP_MINUTES = 15;
+
+// The warm-up stage is only 15 minutes long, so it needs a tighter trigger window
+// than the other checkpoints (which use 15 minutes either side). A +/- 7.5 minute
+// window is exactly 15 minutes wide, so a cron running every 15 minutes lands in
+// it exactly once. NOTE: this requires the cron to run every 15 minutes, not 30.
+const WARMUP_TRIGGER_WINDOW_MINUTES = WAKEUP_WARMUP_MINUTES / 2;
+
 interface SleepCycle {
   preHeatingTime: Date;
   bedTime: Date;
   midStageTime: Date;
   finalStageTime: Date;
+  wakeupWarmupTime: Date;
   wakeupTime: Date;
 }
 
 function createSleepCycle(baseDate: Date, bedTimeStr: string, wakeupTimeStr: string): SleepCycle {
   const preHeatingTime = createDateWithTime(baseDate, bedTimeStr);
   preHeatingTime.setHours(preHeatingTime.getHours() - 1); // Set pre-heating to 1 hour before bedtime
-  
+
   const bedTime = createDateWithTime(baseDate, bedTimeStr);
   let wakeupTime = createDateWithTime(baseDate, wakeupTimeStr);
-  
+
   // Adjust wakeupTime if it's before bedTime (i.e., it's on the next day)
   if (wakeupTime <= bedTime) {
     wakeupTime = addDays(wakeupTime, 1);
   }
-  
+
   const midStageTime = new Date(bedTime.getTime() + 60 * 60 * 1000);
   const finalStageTime = new Date(wakeupTime.getTime() - 2 * 60 * 60 * 1000);
-  
-  return { preHeatingTime, bedTime, midStageTime, finalStageTime, wakeupTime };
+  const wakeupWarmupTime = new Date(wakeupTime.getTime() - WAKEUP_WARMUP_MINUTES * 60 * 1000);
+
+  return { preHeatingTime, bedTime, midStageTime, finalStageTime, wakeupWarmupTime, wakeupTime };
 }
 
 function adjustTimeToCurrentCycle(cycleStart: Date, currentTime: Date, timeInCycle: Date): Date {
@@ -136,6 +147,7 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           bedTime: adjustTimeToCurrentCycle(cycleStart, userNow, sleepCycle.bedTime),
           midStageTime: adjustTimeToCurrentCycle(cycleStart, userNow, sleepCycle.midStageTime),
           finalStageTime: adjustTimeToCurrentCycle(cycleStart, userNow, sleepCycle.finalStageTime),
+          wakeupWarmupTime: adjustTimeToCurrentCycle(cycleStart, userNow, sleepCycle.wakeupWarmupTime),
           wakeupTime: adjustTimeToCurrentCycle(cycleStart, userNow, sleepCycle.wakeupTime),
         };
 
@@ -154,12 +166,14 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
         console.log(`Bed time: ${adjustedCycle.bedTime.toISOString()}`);
         console.log(`Mid stage: ${adjustedCycle.midStageTime.toISOString()}`);
         console.log(`Final stage: ${adjustedCycle.finalStageTime.toISOString()}`);
+        console.log(`Wake-up warm-up: ${adjustedCycle.wakeupWarmupTime.toISOString()}`);
         console.log(`Wake-up: ${adjustedCycle.wakeupTime.toISOString()}`);
 
         const isNearPreHeating = isWithinTimeRange(userNow, adjustedCycle.preHeatingTime, 15);
         const isNearBedTime = isWithinTimeRange(userNow, adjustedCycle.bedTime, 15);
         const isNearMidStage = isWithinTimeRange(userNow, adjustedCycle.midStageTime, 15);
         const isNearFinalStage = isWithinTimeRange(userNow, adjustedCycle.finalStageTime, 15);
+        const isNearWakeupWarmup = isWithinTimeRange(userNow, adjustedCycle.wakeupWarmupTime, WARMUP_TRIGGER_WINDOW_MINUTES);
         const isNearWakeup = isWithinTimeRange(userNow, adjustedCycle.wakeupTime, 15);
 
         // Determine current sleep stage
@@ -170,13 +184,15 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           currentSleepStage = "initial";
         } else if (userNow >= adjustedCycle.midStageTime && userNow < adjustedCycle.finalStageTime) {
           currentSleepStage = "mid";
-        } else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.wakeupTime) {
+        } else if (userNow >= adjustedCycle.finalStageTime && userNow < adjustedCycle.wakeupWarmupTime) {
           currentSleepStage = "final";
+        } else if (userNow >= adjustedCycle.wakeupWarmupTime && userNow < adjustedCycle.wakeupTime) {
+          currentSleepStage = "wake-up warm-up";
         }
 
         console.log(`Current sleep stage for user ${profile.users.email}: ${currentSleepStage}`);
 
-        if (isNearPreHeating || isNearBedTime || isNearMidStage || isNearFinalStage || isNearWakeup) {
+        if (isNearPreHeating || isNearBedTime || isNearMidStage || isNearFinalStage || isNearWakeupWarmup || isNearWakeup) {
           let targetLevel: number;
           let sleepStage: string;
 
@@ -189,9 +205,18 @@ export async function adjustTemperature(testMode?: TestMode): Promise<void> {
           } else if (isNearMidStage || (isNearFinalStage && userNow < adjustedCycle.finalStageTime)) {
             targetLevel = userTemperatureProfile.midStageSleepLevel;
             sleepStage = "mid";
-          } else {
+          } else if (isNearFinalStage) {
             targetLevel = userTemperatureProfile.finalSleepLevel;
             sleepStage = "final";
+          } else {
+            // Reached via isNearWakeupWarmup or isNearWakeup: hold the warm-up level
+            // from the warm-up time through wake-up, until the turn-off branch below
+            // fires 15 minutes after wake-up.
+            // `?? finalSleepLevel` covers rows written before this column existed.
+            targetLevel =
+              userTemperatureProfile.wakeupWarmupLevel ??
+              userTemperatureProfile.finalSleepLevel;
+            sleepStage = "wake-up warm-up";
           }
 
           console.log(`Adjusting temperature for ${sleepStage} stage for user ${profile.users.email}`);

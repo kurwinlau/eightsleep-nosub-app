@@ -225,6 +225,9 @@ export const userRouter = createTRPCRouter({
         initialSleepLevel: z.number().int().min(-100).max(100),
         midStageSleepLevel: z.number().int().min(-100).max(100),
         finalSleepLevel: z.number().int().min(-100).max(100),
+        // Defaulted so a client still running the previous deploy can submit
+        // without a validation error during a rollout.
+        wakeupWarmupLevel: z.number().int().min(-100).max(100).default(0),
         timezoneTZ: z.string().max(50),
       }),
     )
@@ -238,6 +241,7 @@ export const userRouter = createTRPCRouter({
           initialSleepLevel: input.initialSleepLevel,
           midStageSleepLevel: input.midStageSleepLevel,
           finalSleepLevel: input.finalSleepLevel,
+          wakeupWarmupLevel: input.wakeupWarmupLevel,
           timezoneTZ: input.timezoneTZ,
           updatedAt: new Date(),
         };
@@ -254,6 +258,7 @@ export const userRouter = createTRPCRouter({
               initialSleepLevel: input.initialSleepLevel,
               midStageSleepLevel: input.midStageSleepLevel,
               finalSleepLevel: input.finalSleepLevel,
+              wakeupWarmupLevel: input.wakeupWarmupLevel,
               timezoneTZ: input.timezoneTZ,
               updatedAt: new Date(),
             },
