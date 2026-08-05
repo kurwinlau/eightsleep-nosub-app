@@ -27,6 +27,9 @@ export const userTemperatureProfile = createTable("userTemperatureProfiles", {
   initialSleepLevel: integer("initialSleepLevel").notNull(),
   midStageSleepLevel: integer("midStageSleepLevel").notNull(),
   finalSleepLevel: integer("finalSleepLevel").notNull(),
+  // Nullable with a default so `db:push` can add it to a table that already has
+  // rows, and so older deployments that don't know about it keep working.
+  wakeupWarmupLevel: integer("wakeupWarmupLevel").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   timezoneTZ: varchar("timezone", { length: 50 }).notNull(),
