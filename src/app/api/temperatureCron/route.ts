@@ -43,6 +43,16 @@ async function retryApiCall<T>(apiCall: () => Promise<T>, retries = 3): Promise<
   throw new Error("This should never happen due to the for loop, but TypeScript doesn't know that");
 }
 
+// Stage timings, anchored from opposite ends of the night.
+const MID_STAGE_AFTER_BEDTIME_HOURS = 2;
+const FINAL_STAGE_BEFORE_WAKEUP_HOURS = 3;
+
+// Because the two are anchored from opposite ends, they collide on a short
+// night: mid == final when the night is exactly
+// MID_STAGE_AFTER_BEDTIME_HOURS + FINAL_STAGE_BEFORE_WAKEUP_HOURS (5h), and
+// they invert below that. Not guarded against -- these schedules are set once
+// and are comfortably longer than that.
+
 // How long before wake-up the warm-up stage starts.
 const WAKEUP_WARMUP_MINUTES = 15;
 
@@ -73,8 +83,8 @@ function createSleepCycle(baseDate: Date, bedTimeStr: string, wakeupTimeStr: str
     wakeupTime = addDays(wakeupTime, 1);
   }
 
-  const midStageTime = new Date(bedTime.getTime() + 60 * 60 * 1000);
-  const finalStageTime = new Date(wakeupTime.getTime() - 2 * 60 * 60 * 1000);
+  const midStageTime = new Date(bedTime.getTime() + MID_STAGE_AFTER_BEDTIME_HOURS * 60 * 60 * 1000);
+  const finalStageTime = new Date(wakeupTime.getTime() - FINAL_STAGE_BEFORE_WAKEUP_HOURS * 60 * 60 * 1000);
   const wakeupWarmupTime = new Date(wakeupTime.getTime() - WAKEUP_WARMUP_MINUTES * 60 * 1000);
 
   return { preHeatingTime, bedTime, midStageTime, finalStageTime, wakeupWarmupTime, wakeupTime };
