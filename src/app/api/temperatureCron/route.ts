@@ -9,6 +9,9 @@ import { setHeatingLevel, turnOnSide, turnOffSide } from "~/server/eight/eight";
 import { getCurrentHeatingStatus } from "~/server/eight/user";
 
 export const runtime = "nodejs";
+// vercel.json's "app/api/**/*" pattern doesn't match src/app, so without this
+// the route falls back to Vercel's 10s default and times out.
+export const maxDuration = 60;
 
 function createDateWithTime(baseDate: Date, timeString: string): Date {
   const [hours, minutes] = timeString.split(':').map(Number);
