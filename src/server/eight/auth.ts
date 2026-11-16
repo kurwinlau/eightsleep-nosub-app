@@ -1,4 +1,4 @@
-import { AUTH_URL, DEFAULT_AUTH_HEADERS, KNOWN_CLIENT_ID, KNOWN_CLIENT_SECRET } from './constants';
+import { AUTH_URL, DEFAULT_AUTH_HEADERS, KNOWN_CLIENT_ID, KNOWN_CLIENT_SECRET, API_REQUEST_TIMEOUT_MS } from './constants';
 import { EightTokenSchema, TokenResponse, type Token } from './types';
 
 export class AuthError extends Error {
@@ -21,6 +21,7 @@ async function makeAuthRequest(data: Record<string, string>): Promise<TokenRespo
       method: 'POST',
       headers: DEFAULT_AUTH_HEADERS,
       body: JSON.stringify(data),
+      signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
