@@ -124,3 +124,7 @@ export const RAW_TO_FAHRENHEIT_MAP: Record<number, number> = {
   '92': 110,
   '100': 111,
 };
+// Per-request timeout for Eight Sleep API calls. Keeps a stalled upstream from
+// hanging the cron past Vercel's maxDuration (60s) -- retries included, the
+// worst case per call is ~3x this plus backoff.
+export const API_REQUEST_TIMEOUT_MS = 5000;

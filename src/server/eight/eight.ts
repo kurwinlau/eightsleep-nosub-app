@@ -1,7 +1,7 @@
 // eight.ts
 import { z } from 'zod';
 import { DeviceDataSchema, DeviceListSchema, type Token } from './types';
-import { CLIENT_API_URL, APP_API_URL, DEFAULT_API_HEADERS } from './constants';
+import { CLIENT_API_URL, APP_API_URL, DEFAULT_API_HEADERS, API_REQUEST_TIMEOUT_MS } from './constants';
 
 
 export async function fetchWithAuth<T extends z.ZodType<unknown, z.ZodTypeDef, unknown>>(
@@ -11,6 +11,7 @@ export async function fetchWithAuth<T extends z.ZodType<unknown, z.ZodTypeDef, u
   options: RequestInit = {}
 ): Promise<z.infer<T>> {
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
     ...options,
     headers: {
       ...DEFAULT_API_HEADERS,
